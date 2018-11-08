@@ -20,15 +20,25 @@ copy (x : a : xs) = replicate x a ++ copy xs
 
 --------------------------------------------------------------------------------
 
+-- returns the infinite list of comparisons of each individual pair of elements
 (~=) :: Eq a => Stream a -> Stream a -> [Bool]
 xs ~= ys = zipWith (==) xs ys
 
 --------------------------------------------------------------------------------
 
+-- a datatype to represent properties of the shape
+--   (t1 ~= t2) ==> (t3 ~= t4)
 data Prop = [Bool] :==> [Bool] deriving ( Eq, Ord, Show )
 
 injective f (xs :: Stream Bool) ys =
   f xs ~= f ys :==> xs ~= ys
+
+--------------------------------------------------------------------------------
+
+-- the actual property we want to test:
+-- - if there is no counterexample, then everything is fine
+-- - if there is a counterexample, it may be a false counterexample because
+--   h may be bad
 
 prop_Test prop h (Positive n) (InfiniteList xs _) (InfiniteList ys _) =
   and (take (h n) pre) ==>
@@ -41,6 +51,10 @@ h2 k = 2*k
 h3 k = (k `div` 2) + 1
 h4 k = k `div` 2
 
+--------------------------------------------------------------------------------
+
+-- testing whether or not h is bad for the given property
+
 prop_Good_h prop h
   (Positive n, Positive k) (InfiniteList xs _) (InfiniteList ys _) =
   and (take (h n) pre) && k > h n ==>
@@ -50,6 +64,10 @@ prop_Good_h prop h
   pre' :==> _ = prop (cut xs) (cut ys)
 
   cut zs = take n zs ++ repeat False
+
+--------------------------------------------------------------------------------
+
+-- some examples
 
 main :: IO ()
 main =
@@ -78,4 +96,6 @@ main =
      quickCheck' $ expectFailure $ prop_Good_h (injective twice) h1
      
 quickCheck' p = quickCheckWith stdArgs{ maxSuccess = 1000 } p
+
+--------------------------------------------------------------------------------
 
