@@ -15,8 +15,8 @@ half  (x : _ : xs) = x : half xs
 twice (x : xs)     = x : x : twice xs
 shift (_ : xs)     = xs
 
-copy :: Stream Int -> Stream Int
-copy (x : a : xs) = replicate x a ++ copy xs
+copy :: Stream (Positive Int) -> Stream (Positive Int)
+copy (x : a : xs) = replicate (getPositive x) a ++ copy xs
 
 --------------------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ xs ~= ys = zipWith (==) xs ys
 --   (t1 ~= t2) ==> (t3 ~= t4)
 data Prop = [Bool] :==> [Bool] deriving ( Eq, Ord, Show )
 
-injective f (xs :: Stream Bool) ys =
+injective f xs ys =
   f xs ~= f ys :==> xs ~= ys
 
 --------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ prop_Test prop h (Positive n) (InfiniteList xs _) (InfiniteList ys _) =
   and (take (h n) pre) ==>
     and (take n post)
  where
-  pre :==> post = prop xs ys
+  pre :==> post = prop xs (ys :: [Bool])
 
 h1 k = k+1
 h2 k = 2*k
@@ -60,7 +60,7 @@ prop_Good_h prop h
   and (take (h n) pre) && k > h n ==>
     and (take k pre')
  where
-  pre  :==> _ = prop xs ys
+  pre  :==> _ = prop xs (ys :: [Bool])
   pre' :==> _ = prop (cut xs) (cut ys)
 
   cut zs = take n zs ++ repeat False
@@ -96,6 +96,53 @@ main =
      quickCheck' $ expectFailure $ prop_Good_h (injective twice) h1
      
 quickCheck' p = quickCheckWith stdArgs{ maxSuccess = 1000 } p
+
+--------------------------------------------------------------------------------
+
+prop_Test_Copy (Positive n) (InfiniteList xs _) (InfiniteList ys _) =
+  and (take (h xs ys n) pre) ==>
+    and (take n post)
+ where
+  pre :==> post = injective copy xs ys
+
+  h xs ys n = calc (take n xs) `max` calc (take n ys)
+  
+  calc (n:xs) = getPositive n + calc (drop 1 xs)
+  calc []     = 0
+
+--------------------------------------------------------------------------------
+
+-- testing whether or not h is bad for the given property
+
+prop_Good_h_Copy
+  (Positive n, Positive k) (InfiniteList xs _) (InfiniteList ys _) =
+  and (take (h xs ys n) pre) ==>
+    and (take (h xs ys n + k) pre')
+ where
+  pre  :==> _ = injective copy xs ys
+  pre' :==> _ = injective copy (cut xs) (cut ys)
+
+  cut zs = take n zs ++ repeat (Positive 1)
+
+  h xs ys n = calc (take n xs) `max` calc (take n ys)
+  
+  calc (n:xs) = getPositive n + calc (drop 1 xs)
+  calc []     = 0
+
+prop_Bad_h_Copy
+  (Positive n, Positive k) (InfiniteList xs _) (InfiniteList ys _) =
+  and (take (h xs ys n) pre) ==>
+    and (take (h xs ys n + k) pre')
+ where
+  pre  :==> _ = injective copy xs ys
+  pre' :==> _ = injective copy (cut xs) (cut ys)
+
+  cut zs = take n zs ++ repeat (Positive 1)
+
+  h xs ys n = calc (take n xs) -- `max` calc (take n ys)
+  
+  calc (n:xs) = getPositive n + calc (drop 1 xs)
+  calc []     = 0
 
 --------------------------------------------------------------------------------
 
